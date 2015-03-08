@@ -1,0 +1,12 @@
+{
+  "dependencies": {
+    "bluebird": "^2.9.13",
+    "cc-superagent-promise": "^0.2.0-d",
+    "co": "^4.4.0",
+    "config": "^1.12.0",
+    "hiredis": "^0.2.0",
+    "lodash": "^3.4.0",
+    "redis": "^0.12.1",
+    "superagent": "^0.21.0"
+  }
+}
