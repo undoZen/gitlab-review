@@ -4,6 +4,7 @@ var superagent = require('cc-superagent-promise');
 var co = require('co');
 var sortBy = require('lodash').sortBy;
 var pluck = require('lodash').pluck;
+var config = require('config');
 
 function requestOnce(f) {
     return function (p1) {
@@ -33,6 +34,7 @@ function requestOnce(f) {
 }
 
 var getAllProjects = requestOnce(co.wrap(function * () {
+    console.time('ap');
     var body;
     var result = [];
     var i = 0;
@@ -45,6 +47,7 @@ var getAllProjects = requestOnce(co.wrap(function * () {
             .end()).body;
         result = result.concat(body);
     } while (body.length);
+    console.time('ap');
     return result;
 }));
 getAllProjects();

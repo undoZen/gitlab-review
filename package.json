@@ -1,6 +1,8 @@
 {
   "dependencies": {
     "bluebird": "^2.9.13",
+    "bunyan": "^1.3.4",
+    "bunyan-hub-logger": "^0.2.0",
     "cc-superagent-promise": "^0.2.0-d",
     "co": "^4.4.0",
     "config": "^1.12.0",
