@@ -4,7 +4,6 @@ var superagent = require('cc-superagent-promise');
 var co = require('co');
 var sortBy = require('lodash').sortBy;
 var pluck = require('lodash').pluck;
-var config = require('config');
 
 function requestOnce(f) {
     return function (p1) {
@@ -40,8 +39,8 @@ var getAllProjects = requestOnce(co.wrap(function * () {
     do {
         i += 1;
         body = (yield superagent.get(
-                'http://gitlab.creditcloud.com/api/v3/projects?per_page=100&page=' +
-                i)
+                config.inner_url_prefix +
+                '/api/v3/projects?per_page=100&page=' + i)
             .set('PRIVATE-TOKEN', config.private_token)
             .end()).body;
         result = result.concat(body);
@@ -52,9 +51,9 @@ getAllProjects();
 
 var getOpenedMergeRequests = co.wrap(function * (pid) {
     return (yield superagent.get(
-            'http://gitlab.creditcloud.com/api/v3/projects/' + pid +
+            config.inner_url_prefix + '/api/v3/projects/' + pid +
             '/merge_requests?state=opened')
-        .set('PRIVATE-TOKEN', config.private_token)
+        .set('PRIVATE-TOKEN', 'PsfVVHfxMxya3YzM9HR5')
         .end()).body;
 });
 var getAllOpenedMergeRequests = co.wrap(function * () {
