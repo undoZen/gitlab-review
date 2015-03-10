@@ -127,48 +127,60 @@ function getReviewResult(notes) {
 }
 
 function postReviewNotes(mr) {
-    log.info({
-        mr: mr
-    }, 'posting review notes');
-}
-var ticking = false;
-var tick = co.wrap(function * () {
-    if (ticking) return;
-    ticking = true;
-    log.trace({
-        type: 'ticktock'
-    }, 'tick');
-    var gms = JSON.parse(yield db.getAsync('tick:gms'));
-    var ps = JSON.parse(yield db.getAsync('tick:ps'));
-    var mrs = JSON.parse(yield db.getAsync('tick:mrs'));
-    mrs.forEach(function (mr) {
-        if (!mr.notes.filter(function (note) {
-            return note.author.username === 'creditcloud';
-        }).length) {}
-        mr.notes = augmentNotes(gms, ps, mr);
-        mr.review = {
-            updatedAt: mr.created_at
-        };
-        assign(mr.review, getReviewResult(mr.notes));
-        postReviewNotes(mr);
-        /*
+    if (mr.project_id !== 88) return;
+    body = (yield superagent.post(
+            config.inner_url_prefix + '/api/v3/projects/' + mr.project_id +
+            '/merge_requests/' + mr.id + '/notes')
+        .type('json')
+        .send({
+                body: 'gitlab review 已关注此 merge request，请登录 http://gitlab.creditcloud.com/~review 了解 review 投票状态并在达成条件时进行 merge 操作'
+                )
+            .set('PRIVATE-TOKEN', config.private_token)
+            .end()).body; log.info({
+            body: body,
+            mr: mr
+        }, 'post review notes');
+    }
+    var ticking = false;
+    var tick = co.wrap(function * () {
+        if (ticking) return;
+        ticking = true;
+        log.trace({
+            type: 'ticktock'
+        }, 'tick');
+        var gms = JSON.parse(yield db.getAsync('tick:gms'));
+        var ps = JSON.parse(yield db.getAsync('tick:ps'));
+        var mrs = JSON.parse(yield db.getAsync('tick:mrs'));
+        mrs.forEach(function (mr) {
+            if (!mr.notes.filter(function (note) {
+                return note.author.username === 'creditcloud';
+            }).length) {}
+            mr.notes = augmentNotes(gms, ps, mr);
+            mr.review = {
+                updatedAt: mr.created_at
+            };
+            assign(mr.review, getReviewResult(mr.notes));
+            if (postInit) {
+                postReviewNotes(mr);
+            }
+            /*
 		mr.reviewAll = countYeas(gms, ps, mr, mr.notes, true);
 		mr.reviewYea = countYeas(gms, ps, mr, mr.notes);
 		mr.reviewYeaByAssignee = yeaByAssignee(mr, mr.notes);
 */
-        log.trace({
-            notes: mr.notes,
-            review: mr.review,
-            mr: mr
+            log.trace({
+                //notes: mr.notes,
+                review: mr.review,
+                //mr: mr
+            });
         });
+        yield sleep(1000);
+        db.publish('tock', true);
+        ticking = false;
     });
-    yield sleep(1000);
     db.publish('tock', true);
-    ticking = false;
-});
-db.publish('tock', true);
 
-var sub = redis.createClient(config.redis_port || 6379, config.redis_host ||
-    '127.0.0.1');
-sub.on('message', tick);
-sub.subscribe('tick');
+    var sub = redis.createClient(config.redis_port || 6379, config.redis_host ||
+        '127.0.0.1');
+    sub.on('message', tick);
+    sub.subscribe('tick');
