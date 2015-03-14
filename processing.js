@@ -55,7 +55,7 @@ function augmentNotes(gms, ps, mr) {
             }
             return false;
         }
-        note.isAssignee = mr.assignee && note.author.id === mr.assignee.id;
+        note.is_assignee = mr.assignee && note.author.id === mr.assignee.id;
         note.yea = !! note.body.match(/\bYEA\b/i);
         return note;
     }).filter(Boolean);
@@ -65,25 +65,25 @@ function getReviewResult(notes) {
     var all = {};
     var yeas = {};
     var result = {
-        assigneeId: null,
-        assigneeName: null,
-        assigneeYea: false,
-		postInit: true,
-		postReset: false,
+        assignee_id: null,
+        assignee_name: null,
+        assignee_yea: false,
+        postInit: true,
+        postReset: false,
     };
     for (var note, i = -1; note = notes[++i];) {
         if (note.isUpdate) {
             all = {};
             yeas = {};
-            result.assigneeYea = false;
-            result.updatedAt = (new Date).toISOString();
-			result.postReset = true;
+            result.assignee_yea = false;
+            result.updated_at = (new Date).toISOString();
+            result.postReset = true;
             continue;
         }
         if (note.author.username === 'creditcloud') {
             result.postInit = false;
-            if (result.updatedAt) result.postReset = false;
-			continue;
+            if (result.updated_at) result.postReset = false;
+            continue;
         }
         all[note.author.id] = note.author.name;
         if (note.yea) {
@@ -91,10 +91,10 @@ function getReviewResult(notes) {
         } else {
             delete yeas[note.author.id];
         }
-        if (note.isAssignee) {
-            result.assigneeId = note.author.id;
-            result.assigneeName = note.author.name;
-            result.assigneeYea = note.yea;
+        if (note.is_assignee) {
+            result.assignee_id = note.author.id;
+            result.assignee_name = note.author.name;
+            result.assignee_yea = note.yea;
         }
     }
     return assign(result, {
@@ -156,7 +156,7 @@ var tick = co.wrap(function * () {
         }).length) {}
         mr.notes = augmentNotes(gms, ps, mr);
         mr.review = {
-            updatedAt: mr.created_at
+            updated_at: mr.created_at
         };
         assign(mr.review, getReviewResult(mr.notes));
         if (mr.review.postInit) {
@@ -165,19 +165,19 @@ var tick = co.wrap(function * () {
         if (mr.review.postReset) {
             postReset(mr);
         }
-		mr.project = ps[mr.project_id];
-		// var beenUpdatedFor = Date.now() - (new Date(mr.review.updatedAt)).valueOf();
+        mr.project = ps[mr.project_id];
+        // var beenUpdatedFor = Date.now() - (new Date(mr.review.updatedAt)).valueOf();
         /*
 		mr.reviewAll = countYeas(gms, ps, mr, mr.notes, true);
 		mr.reviewYea = countYeas(gms, ps, mr, mr.notes);
 		mr.reviewYeaByAssignee = yeaByAssignee(mr, mr.notes);
 */
     });
-	log.trace({
-		mrs: mrs,
-	});
+    log.trace({
+        mrs: mrs,
+    });
     yield sleep(1000);
-	yield db.setAsync('opened_merge_requests', JSON.stringify(mrs));
+    yield db.setAsync('opened_merge_requests', JSON.stringify(mrs));
     yield db.publishAsync('tock', true);
     ticking = false;
 });
