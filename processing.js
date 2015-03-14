@@ -23,26 +23,6 @@ function sleep(ms) {
 var db = redis.createClient(config.redis_port || 6379, config.redis_host ||
     '127.0.0.1');
 
-function yeaByAssignee(mr, notes) {
-    if (!mr.assignee) return false;
-    return notes.filter(function (note) {
-        return note.author.id === mr.assignee.id && !! note.body.match(
-            /\bYEA\b/);
-    }).length > 0;
-}
-
-function countYeas(gms, ps, mr, notes, all) {
-    var gid = ps[mr.project_id].namespace.id;
-    return Object.keys(transform(notes, function (c, note) {
-        if (note.author.id === mr.author.id || !gms[gid][note.author.id])
-            return;
-        if (gms[gid][note.author.id].access_level >= 30) {
-            if (!all && !note.body.match(/\bYEA\b/)) return;
-            c[note.author.id] = 1;
-        }
-    })).length;
-}
-
 function augmentNotes(gms, ps, mr) {
     var gid = ps[mr.project_id].namespace.id;
     log.trace({
@@ -76,7 +56,7 @@ function augmentNotes(gms, ps, mr) {
             return false;
         }
         note.isAssignee = mr.assignee && note.author.id === mr.assignee.id;
-        note.yea = !! note.body.match(/\bYEA\b/);
+        note.yea = !! note.body.match(/\bYEA\b/i);
         return note;
     }).filter(Boolean);
 }
@@ -88,8 +68,8 @@ function getReviewResult(notes) {
         assigneeId: null,
         assigneeName: null,
         assigneeYea: false,
-        postInit: true,
-        postReset: false,
+		postInit: true,
+		postReset: false,
     };
     for (var note, i = -1; note = notes[++i];) {
         if (note.isUpdate) {
@@ -97,11 +77,13 @@ function getReviewResult(notes) {
             yeas = {};
             result.assigneeYea = false;
             result.updatedAt = (new Date).toISOString();
+			result.postReset = true;
             continue;
         }
         if (note.author.username === 'creditcloud') {
             result.postInit = false;
-            if (result.updatedAt) result.postReset = true;
+            if (result.updatedAt) result.postReset = false;
+			continue;
         }
         all[note.author.id] = note.author.name;
         if (note.yea) {
@@ -126,14 +108,30 @@ function getReviewResult(notes) {
     });
 }
 
-postInit = co.wrap(function * (mr) {
+var postInit = co.wrap(function * (mr) {
     if (mr.project_id !== 88) return;
-    body = (yield superagent.post(
+    var body = (yield superagent.post(
             config.inner_url_prefix + '/api/v3/projects/' + mr.project_id +
             '/merge_requests/' + mr.id + '/notes')
         .type('json')
         .send({
-            body: 'gitlab review 已关注此 merge request，请登录 http://gitlab.creditcloud.com/~review 了解 review 投票状态并在达成条件时进行 merge 操作'
+            body: 'gitlab review 已关注此 merge request，请登录 http://gitlab.creditcloud.com/~review 了解 review 投票状态并在达成条件时进行 merge 操作\n\n请回复包含大写 YEA 单词的评论表示赞同 merge，回复其他表示反对'
+        })
+        .set('PRIVATE-TOKEN', config.private_token)
+        .end()).body;
+    log.info({
+        body: body,
+        mr: mr
+    }, 'post review notes');
+});
+var postReset = co.wrap(function * (mr) {
+    if (mr.project_id !== 88) return;
+    var body = (yield superagent.post(
+            config.inner_url_prefix + '/api/v3/projects/' + mr.project_id +
+            '/merge_requests/' + mr.id + '/notes')
+        .type('json')
+        .send({
+            body: '因为有代码更新，review 状态已重设，请重新回复 YEA 表示同意 merge'
         })
         .set('PRIVATE-TOKEN', config.private_token)
         .end()).body;
@@ -161,22 +159,26 @@ var tick = co.wrap(function * () {
             updatedAt: mr.created_at
         };
         assign(mr.review, getReviewResult(mr.notes));
-        if (postInit) {
+        if (mr.review.postInit) {
             postInit(mr);
         }
+        if (mr.review.postReset) {
+            postReset(mr);
+        }
+		mr.project = ps[mr.project_id];
+		// var beenUpdatedFor = Date.now() - (new Date(mr.review.updatedAt)).valueOf();
         /*
 		mr.reviewAll = countYeas(gms, ps, mr, mr.notes, true);
 		mr.reviewYea = countYeas(gms, ps, mr, mr.notes);
 		mr.reviewYeaByAssignee = yeaByAssignee(mr, mr.notes);
 */
-        log.trace({
-            //notes: mr.notes,
-            review: mr.review,
-            //mr: mr
-        });
     });
+	log.trace({
+		mrs: mrs,
+	});
     yield sleep(1000);
-    db.publish('tock', true);
+	yield db.setAsync('opened_merge_requests', JSON.stringify(mrs));
+    yield db.publishAsync('tock', true);
     ticking = false;
 });
 db.publish('tock', true);
