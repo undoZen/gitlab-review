@@ -23,7 +23,7 @@ function sleep(ms) {
 var db = redis.createClient(config.redis_port || 6379, config.redis_host ||
     '127.0.0.1');
 
-function augmentNotes(gms, ps, mr) {
+function augmentNotes(mr, gms, ps) {
     var gid = ps[mr.project_id].namespace.id;
     log.trace({
         type: 'mr',
@@ -50,7 +50,7 @@ function augmentNotes(gms, ps, mr) {
         }
         if (note.author.id === mr.author.id) {
             if (note.body.match(/Added \d+ new commit/)) {
-                note.isUpdate = true;
+                note.is_updated = true;
                 return note;
             }
             return false;
@@ -61,28 +61,30 @@ function augmentNotes(gms, ps, mr) {
     }).filter(Boolean);
 }
 
-function getReviewResult(notes) {
+function getReviewResults(mr) {
+    var notes = mr.notes;
     var all = {};
     var yeas = {};
-    var result = {
+    var reviews = {
+        updated_at: mr.created_at
         assignee_id: null,
         assignee_name: null,
         assignee_yea: false,
-        postInit: true,
-        postReset: false,
-    };
+    }
+    var shouldPostInit = true;
+    var shouldPostReset = false;
     for (var note, i = -1; note = notes[++i];) {
-        if (note.isUpdate) {
+        if (note.is_updated) {
             all = {};
             yeas = {};
-            result.assignee_yea = false;
-            result.updated_at = (new Date).toISOString();
-            result.postReset = true;
+            reviews.assignee_yea = false;
+            reviews.updated_at = note.created_at
+            shouldPostReset = true;
             continue;
         }
         if (note.author.username === 'creditcloud') {
-            result.postInit = false;
-            if (result.updated_at) result.postReset = false;
+            shouldPostInit = false;
+            if (reviews.updated_at) shouldPostReset = false;
             continue;
         }
         all[note.author.id] = note.author.name;
@@ -92,12 +94,18 @@ function getReviewResult(notes) {
             delete yeas[note.author.id];
         }
         if (note.is_assignee) {
-            result.assignee_id = note.author.id;
-            result.assignee_name = note.author.name;
-            result.assignee_yea = note.yea;
+            reviews.assignee_id = note.author.id;
+            reviews.assignee_name = note.author.name;
+            reviews.assignee_yea = note.yea;
         }
     }
-    return assign(result, {
+    if (shouldPostInit) {
+        postInit(mr);
+    }
+    if (shouldPostReset) {
+        postReset(mr);
+    }
+    return assign(reviews, {
         votes: Object.keys(all).map(function (id) {
             return {
                 id: id,
@@ -140,6 +148,7 @@ var postReset = co.wrap(function * (mr) {
         mr: mr
     }, 'post review notes');
 });
+
 var ticking = false;
 var tick = co.wrap(function * () {
     if (ticking) return;
@@ -154,24 +163,9 @@ var tick = co.wrap(function * () {
         if (!mr.notes.filter(function (note) {
             return note.author.username === 'creditcloud';
         }).length) {}
-        mr.notes = augmentNotes(gms, ps, mr);
-        mr.review = {
-            updated_at: mr.created_at
-        };
-        assign(mr.review, getReviewResult(mr.notes));
-        if (mr.review.postInit) {
-            postInit(mr);
-        }
-        if (mr.review.postReset) {
-            postReset(mr);
-        }
+        mr.notes = augmentNotes(mr, gms, ps);
+        mr.review = getReviewResults(mr);
         mr.project = ps[mr.project_id];
-        // var beenUpdatedFor = Date.now() - (new Date(mr.review.updatedAt)).valueOf();
-        /*
-		mr.reviewAll = countYeas(gms, ps, mr, mr.notes, true);
-		mr.reviewYea = countYeas(gms, ps, mr, mr.notes);
-		mr.reviewYeaByAssignee = yeaByAssignee(mr, mr.notes);
-*/
     });
     log.trace({
         mrs: mrs,
