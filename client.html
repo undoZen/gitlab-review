@@ -1,0 +1,40 @@
+<!doctype html>
+<link rel="stylesheet" href="/node_modules/bootstrap/dist/css/bootstrap.min.css" media="all">
+<script src="/node_modules/jquery/dist/jquery.min.js"></script>
+<script src="/node_modules/bootstrap/dist/js/bootstrap.js"></script>
+<link rel="stylesheet" href="/assets/css/style.css" media="all">
+
+<title>CC GitLab 辅助控制台</title>
+
+<div id="main">
+    <div class="container">
+        <div id="omr-list">
+        </div>
+    </div>
+</div>
+
+<script id="omr-list-template" type="text/html">
+<ul>
+{{#each mrs}}
+<li>
+<h2><a href={{project_url}} target="_blank">{{project_name}}</a> <a href={{url}} target="_blank">#{{iid}} {{title}}</a></h2>
+<p>{{author.username}}:{{source_branch}} → {{project_namespace_path}}:{{target_branch}}</p>
+<p>提交者：{{author.name}} &nbsp; {{#if review.assignee_id}}指派给：{{review.assignee_name}}{{#if review.assignee_yea}}<span class="glyphicon glyphicon-ok" aria-hidden="true"></span>{{/if}}
+{{else}}
+无指派
+{{/if}} 最后更新：{{review.updated_at_mmt}}
+</p>
+<p>状态：({{review.yeas}}/{{review.all}}) 
+{{#each review.votes}}
+{{name}} {{#if yea}}<span class="glyphicon glyphicon-ok" aria-hidden="true"></span>{{/if}}
+{{/each}}
+</p>
+<p>
+<button on-click="merge(this)" class="btn {{#if canMerge}}btn-primary{{/if}}" {{^canMerge}}disabled{{/canMerge}}>Merge</button>
+<span class="hint">{{hint}}</span>
+</p>
+</li>
+{{/each}}
+</ul>
+</script>
+<script src="/browser.js"></script>

@@ -17,6 +17,7 @@ Promise.promisifyAll(require("redis"));
 var db = redis.createClient(config.redis_port || 6379, config.redis_host ||
     '127.0.0.1');
 var pick = require('lodash').pick;
+var sortBy = require('lodash').sortBy;
 var browserify = require('browserify');
 
 var app = koa();
@@ -31,13 +32,18 @@ function getOMRList(mrs) {
     return mrs.map(function (mr) {
         console.log(mr);
         var result = pick(mr, [
-            'title',
+            'project_id',
+            'id',
             'iid',
+            'title',
             'author',
             'review',
+            'source_branch',
+            'target_branch',
         ]);
         result.project_url = mr.project.web_url;
-        result.project_name = mr.project.name_with_namespace;
+        result.project_name = mr.project.name;
+        result.project_namespace_path = mr.project.namespace.path;
         result.url = result.project_url + '/merge_requests/' +
             mr.iid;
         return result;
@@ -95,19 +101,37 @@ var io = require('socket.io')(server);
 io.on('connection', function (socket) {
     var sdb = redis.createClient(config.redis_port || 6379, config.redis_host ||
         '127.0.0.1');
-    console.log(sdb);
     var lastmrs = '';
     sdb.on('message', co.wrap(function * (chan, msg) {
         var mrs = yield db.getAsync('opened_merge_requests');
-        console.log(mrs);
         if (lastmrs === mrs) return;
+        console.log(mrs);
         lastmrs = mrs;
-        socket.emit('omr', getOMRList(JSON.parse(mrs)));
+        mrs = getOMRList(sortBy(JSON.parse(mrs), function (mr) {
+            return 0 - (new Date(mr.review.updated_at)).valueOf();
+        }));
+        socket.emit('omr', mrs);
     }));
     sdb.subscribe('tick');
     socket.emit('news', {
         hello: 'world'
     });
+    socket.on('merge', co.wrap(function * (mr, cb) {
+        var r = yield superagent.put(config.inner_url_prefix +
+            '/api/v3/projects/' + mr.project_id + '/merge_request/' +
+            mr.id + '/merge')
+            .set('PRIVATE-TOKEN', config.private_token)
+            .type('form')
+            .send({
+                merge_commit_message: 'merged from ccconsole by @' +
+                    mr.username
+            })
+            .end();
+        cb({
+            statuc: r.status,
+            body: r.body
+        });
+    }));
     socket.on('close', function () {
         sdb.unsubscribe();
         sdb.close();

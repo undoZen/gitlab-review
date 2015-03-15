@@ -5,7 +5,6 @@ var log = require('./log').child({
 });
 var superagent = require('cc-superagent-promise');
 var co = require('co');
-var sortBy = require('lodash').sortBy;
 var pluck = require('lodash').pluck;
 var indexBy = require('lodash').indexBy;
 var transform = require('lodash').transform;
