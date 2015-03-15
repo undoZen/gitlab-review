@@ -28,10 +28,14 @@ app.use(function * (next) {
     this.type = 'json'
     var omr = JSON.parse(yield db.getAsync('opened_merge_requests'))
         .map(function (mr) {
+            console.log(mr);
             var result = pick(mr, [
                 'title',
+                'iid',
+                'review',
             ]);
-            result.projectUrl = mr.project.web_url;
+            result.project_url = mr.project.web_url;
+            result.project_name = mr.project.name_with_namespace;
             result.url = result.project_url + '/merge_requests/' + mr.iid;
             return result;
         });
@@ -53,7 +57,7 @@ app.use(function * (next) {
         pk = match[1];
     }
     this.type = 'json';
-    this.body = pk;
+    this.body = pk || 'no pk found';
 });
 
 app.listen(7080);
