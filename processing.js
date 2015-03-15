@@ -106,6 +106,8 @@ function getReviewResults(mr) {
         postReset(mr);
     }
     return assign(reviews, {
+        all: Object.keys(all).length,
+        yeas: Object.keys(yeas).length,
         votes: Object.keys(all).map(function (id) {
             return {
                 id: id,
