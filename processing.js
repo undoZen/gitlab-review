@@ -66,7 +66,7 @@ function getReviewResults(mr) {
     var all = {};
     var yeas = {};
     var reviews = {
-        updated_at: mr.created_at
+        updated_at: mr.created_at,
         assignee_id: null,
         assignee_name: null,
         assignee_yea: false,
