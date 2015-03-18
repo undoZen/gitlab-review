@@ -94,7 +94,7 @@ var getClientScript = (function (isProduction) {
                         fromString: true
                     }).code;
                 }
-                return source;
+                return source.replace('"__SOCKETIO_OPTIONS__"', config.sio);
             });
     }
     var cache;

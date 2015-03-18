@@ -1,7 +1,7 @@
 'use strict';
 var Ractive = require('ractive');
 var Bacon = require('baconjs');
-var socket = require('socket.io-client')();
+var socket = require('socket.io-client')("__SOCKETIO_OPTIONS__");
 var moment = require('moment');
 require('moment/locale/zh-cn');
 window.moment = moment;
