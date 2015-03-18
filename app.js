@@ -33,16 +33,18 @@ var revRewriter = require('rev-rewriter');
 app.response.__defineSetter__('body', function (body) {
     var setBody = app.response.__proto__.__lookupSetter__('body');
     if (this.type === 'text/html') {
-        var revPost = function (p) {
-            return '/~ccconsole/assets/' + p;
-        };
+        var revPost = ;
         body = revRewriter({
             assetPathPrefix: '/assets/',
-            revPost: revPost
+            revPost: function (p) {
+                return '/~ccconsole/assets/' + p;
+            }
         }, body);
         body = revRewriter({
-            assetPathPrefix: '/node_modules/',
-            revPost: revPost
+            assetPathPrefix: '/assets/',
+            revPost: function (p) {
+                return '/~ccconsole/node_modules/' + p;
+            }
         }, body);
     }
     setBody.call(this, body);
