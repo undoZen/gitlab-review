@@ -6,6 +6,7 @@ var log = require('./log').child({
 });
 */
 
+var env = process.env.NODE_ENV || 'development';
 var config = require('config');
 var fs = require('fs');
 var path = require('path');
@@ -27,6 +28,28 @@ app.use(function * (next) {
     this.type = 'json'
     this.body = yield db.getAsync('opened_merge_requests');
 });
+
+var revRewriter = require('rev-rewriter');
+app.response.__defineSetter__('body', function (body) {
+    var setBody = app.response.__proto__.__lookupSetter__('body');
+    if (this.type === 'text/html') {
+        var revPost = function (p) {
+            return '/~ccconsole/assets/' + p;
+        };
+        body = revRewriter({
+            assetPathPrefix: '/assets/',
+            revPost: revPost
+        }, body);
+        body = revRewriter({
+            assetPathPrefix: '/node_modules/',
+            revPost: revPost
+        }, body);
+    }
+    setBody.call(this, body);
+});
+
+app.response.__defineGetter__('body', app.response.__proto__.__lookupGetter__(
+    'body'));
 
 function getOMRList(mrs) {
     return mrs.map(function (mr) {
@@ -58,10 +81,35 @@ app.use(function * (next) {
     this.body = omr;
 });
 
+var UglifyJS = require("uglify-js");
+var getClientScript = (function (isProduction) {
+    var b = browserify(path.join(__dirname, 'browser.js'));
+    var cs = function () {
+        return Promise.promisify(b.bundle.bind(b))()
+            .then(function (source) {
+                source = source.toString();
+                if (isProduction) {
+                    source = UglifyJS.minify(source, {
+                        fromString: true
+                    }).code;
+                }
+                return source;
+            });
+    }
+    var cache;
+    if (isProduction) {
+        return function () {
+            return cache ? cache : (cache = cs());
+        };
+    }
+    return cs;
+}(env === 'production'));
+
+
 app.use(function * (next) {
-    if (this.path.indexOf('/browser.js') < 0) return yield next;
+    if (this.path.indexOf('/assets/js/script.js') < 0) return yield next;
     this.type = 'js';
-    this.body = browserify(path.join(__dirname, 'browser.js')).bundle();
+    this.body = yield getClientScript();
 });
 
 app.use(function * (next) {
@@ -69,6 +117,18 @@ app.use(function * (next) {
     this.cookies.set('_gitlab_session', this.query.s);
     this.body = 'done';
 });
+
+var getClientSource = (function (enableCache) {
+    var cs = Promise.promisify(fs.readFile
+        .bind(fs, path.join(__dirname, 'client.html'), 'utf-8'));
+    var cache;
+    if (enableCache) {
+        return function () {
+            return cache ? cache : (cache = cs());
+        };
+    }
+    return cs;
+}(env === 'production'));
 
 app.use(function * (next) {
     if (this.path !== '/') return yield next;
@@ -103,12 +163,12 @@ app.use(function * (next) {
         this.cookies.set('glpk', pk);
     };
     this.type = 'html';
-    this.body = fs.createReadStream(path.join(__dirname, 'client.html'));
+    this.body = yield getClientSource();
 });
 
 var koaStatic = require('koa-static')(__dirname);
 app.use(function * (next) {
-    if (this.path.indexOf('/account') < 0 &&
+    if (this.path.indexOf('/assets') < 0 &&
         this.path.indexOf('/node_modules') < 0) return yield next;
     yield koaStatic.call(this, next);
 });

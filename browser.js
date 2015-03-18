@@ -19,7 +19,7 @@ var omrList = new Ractive({
     el: 'omr-list',
     template: '#omr-list-template',
     data: {
-        mrs: []
+        mrs: null
     },
     merge: function (mr) {
         console.log('merge', {
