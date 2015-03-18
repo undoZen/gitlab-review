@@ -6,7 +6,15 @@ var moment = require('moment');
 require('moment/locale/zh-cn');
 window.moment = moment;
 
+var me = null;
 var showMergeMessage = console.log.bind(console, 'smm');
+var greeting = new Ractive({
+    el: 'greeting',
+    template: '#greeting-template',
+    data: {
+        me: me
+    }
+});
 var omrList = new Ractive({
     el: 'omr-list',
     template: '#omr-list-template',
@@ -15,7 +23,6 @@ var omrList = new Ractive({
     },
     merge: function (mr) {
         console.log('merge', {
-            username: 'undozen',
             project_id: mr.project_id,
             id: mr.id,
         });
@@ -51,5 +58,16 @@ socket.on('omr', function (mrs) {
     }));
 });
 
-console.log('hello');
+socket.on('me', function (_me) {
+    me = _me;
+    greeting.set('me', me);
+});
+
+socket.on('error', function (err) {
+    console.log(arguments);
+    if (err === 'NO_GLPK') {
+        window.location.reload();
+    }
+});
+
 window.socket = socket;
