@@ -13,12 +13,6 @@ var config = require('config');
 var redis = require('redis');
 Promise.promisifyAll(require("redis"));
 
-function sleep(ms) {
-    return new Promise(function (resolve) {
-        setTimeout(resolve, ms);
-    });
-}
-
 var db = redis.createClient(config.redis_port || 6379, config.redis_host ||
     '127.0.0.1');
 
@@ -118,7 +112,6 @@ function getReviewResults(mr) {
 }
 
 var postInit = co.wrap(function * (mr) {
-    if (mr.project_id !== 88) return;
     var body = (yield superagent.post(
             config.inner_url_prefix + '/api/v3/projects/' + mr.project_id +
             '/merge_requests/' + mr.id + '/notes')
@@ -134,7 +127,6 @@ var postInit = co.wrap(function * (mr) {
     }, 'post review notes');
 });
 var postReset = co.wrap(function * (mr) {
-    if (mr.project_id !== 88) return;
     var body = (yield superagent.post(
             config.inner_url_prefix + '/api/v3/projects/' + mr.project_id +
             '/merge_requests/' + mr.id + '/notes')
@@ -171,7 +163,6 @@ var tick = co.wrap(function * () {
     log.trace({
         mrs: mrs,
     });
-    yield sleep(1000);
     yield db.setAsync('opened_merge_requests', JSON.stringify(mrs));
     yield db.publishAsync('tock', true);
     ticking = false;
