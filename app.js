@@ -33,7 +33,6 @@ var revRewriter = require('rev-rewriter');
 app.response.__defineSetter__('body', function (body) {
     var setBody = app.response.__proto__.__lookupSetter__('body');
     if (this.type === 'text/html') {
-        var revPost = ;
         body = revRewriter({
             assetPathPrefix: '/assets/',
             revPost: function (p) {
