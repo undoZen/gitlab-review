@@ -29,25 +29,27 @@ app.use(function * (next) {
     this.body = yield db.getAsync('opened_merge_requests');
 });
 
-var revRewriter = require('rev-rewriter');
-app.response.__defineSetter__('body', function (body) {
-    var setBody = app.response.__proto__.__lookupSetter__('body');
-    if (this.type === 'text/html') {
-        body = revRewriter({
-            assetPathPrefix: '/assets/',
-            revPost: function (p) {
-                return '/~ccconsole/assets/' + p;
-            }
-        }, body);
-        body = revRewriter({
-            assetPathPrefix: '/node_modules/',
-            revPost: function (p) {
-                return '/~ccconsole/node_modules/' + p;
-            }
-        }, body);
-    }
-    setBody.call(this, body);
-});
+if (env === 'production') {
+    var revRewriter = require('rev-rewriter');
+    app.response.__defineSetter__('body', function (body) {
+        var setBody = app.response.__proto__.__lookupSetter__('body');
+        if (this.type === 'text/html') {
+            body = revRewriter({
+                assetPathPrefix: '/assets/',
+                revPost: function (p) {
+                    return '/~ccconsole/assets/' + p;
+                }
+            }, body);
+            body = revRewriter({
+                assetPathPrefix: '/node_modules/',
+                revPost: function (p) {
+                    return '/~ccconsole/node_modules/' + p;
+                }
+            }, body);
+        }
+        setBody.call(this, body);
+    });
+}
 
 app.response.__defineGetter__('body', app.response.__proto__.__lookupGetter__(
     'body'));
