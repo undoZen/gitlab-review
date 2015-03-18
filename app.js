@@ -40,7 +40,7 @@ app.response.__defineSetter__('body', function (body) {
             }
         }, body);
         body = revRewriter({
-            assetPathPrefix: '/assets/',
+            assetPathPrefix: '/node_modules/',
             revPost: function (p) {
                 return '/~ccconsole/node_modules/' + p;
             }
